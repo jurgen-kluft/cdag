@@ -4,12 +4,18 @@
 
 namespace ncore
 {
-    void DirectedAcyclicGraph::setup(alloc_t* allocator)
+    struct DAGNodeTags
+    {
+        u64 m_tags;
+    };
+
+    void DirectedAcyclicGraph::Setup(alloc_t* allocator)
     {
         m_allocator = allocator;
         m_pool.setup(allocator, 1024, 1024);
-        m_pool.register_object_type<DAGNode>(1024, 32);
-        m_pool.register_object_type<DAGEdge>(1024, 32);
+        m_pool.register_object_type<DAGNode>(EDagObjects::Node, 1024, 32);
+        m_pool.register_object_type<DAGEdge>(EDagObjects::Edge, 1024, 32);
+        m_pool.register_component_type<DAGNodeTags>(EDagObjects::Node, EDagObjects::Tags);
     }
 
     DAGNode* DirectedAcyclicGraph::GetNode(DAGNodeID id) const { return m_pool.get_object<DAGNode>(id); }
@@ -41,16 +47,17 @@ namespace ncore
 
     DAGNodeID DirectedAcyclicGraph::CreateNode()
     {
-        DAGNodeID nodeId = m_pool.allocate_object<DAGNode>();
+        DAGNodeID nodeId = m_pool.allocate_object<DAGNode>(EDagObjects::Node);
         DAGNode*  node   = m_pool.get_object<DAGNode>(nodeId);
         node->m_Incoming = nobject::c_invalid_handle;
         node->m_Outgoing = nobject::c_invalid_handle;
+        m_pool.allocate_component(nodeId, EDagObjects::Tags);
         return nodeId;
     }
 
     DAGEdgeID DirectedAcyclicGraph::CreateEdge(DAGNodeID fromId, DAGNodeID toId)
     {
-        DAGEdgeID edgeId = m_pool.allocate_object<DAGEdge>();
+        DAGEdgeID edgeId = m_pool.allocate_object<DAGEdge>(EDagObjects::Edge);
         DAGEdge*  edge   = m_pool.get_object<DAGEdge>(edgeId);
 
         DAGNode* from               = GetNode(fromId);
@@ -77,15 +84,34 @@ namespace ncore
         // todo: implement
     }
 
-    void DirectedAcyclicGraph::LockNode(DAGNodeID node) { m_pool.add_tag(node, EDagTags::Locked); }
-    bool DirectedAcyclicGraph::IsNodeLocked(DAGNodeID node) const { return m_pool.has_tag(node, EDagTags::Locked); }
+    void DirectedAcyclicGraph::LockNode(DAGNodeID node)
+    {
+        DAGNodeTags* tags = m_pool.get_component<DAGNodeTags>(node, EDagObjects::Tags);
+        tags->m_tags |= (1 << EDagTags::Locked);
+    }
+
+    bool DirectedAcyclicGraph::IsNodeLocked(DAGNodeID node) const
+    {
+        DAGNodeTags* tags = m_pool.get_component<DAGNodeTags>(node, EDagObjects::Tags);
+        return (tags->m_tags & (1 << EDagTags::Locked)) != 0;
+    }
 
     void DirectedAcyclicGraph::Cull(alloc_t* allocator)
     {
         // TODO Cull the nodes that end up with a reference count of 0
     }
 
-    bool DirectedAcyclicGraph::IsNodeCulled(DAGNodeID _node) const { return m_pool.has_tag(_node, EDagTags::Culled); }
+    void DirectedAcyclicGraph::CullNode(DAGNodeID _node)
+    {
+        DAGNodeTags* tags = m_pool.get_component<DAGNodeTags>(_node, EDagObjects::Tags);
+        tags->m_tags |= (1 << EDagTags::Culled);
+    }
+
+    bool DirectedAcyclicGraph::IsNodeCulled(DAGNodeID _node) const
+    {
+        DAGNodeTags* tags = m_pool.get_component<DAGNodeTags>(_node, EDagObjects::Tags);
+        return (tags->m_tags & (1 << EDagTags::Culled)) != 0;
+    }
 
     void DirectedAcyclicGraph::GetIncomingEdges(DAGNodeID _node, alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const
     {

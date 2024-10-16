@@ -28,6 +28,7 @@ namespace ncore
         {
             Edge = 0,
             Node = 1,
+            Tags = 2,
         };
     }
 
@@ -105,7 +106,7 @@ namespace ncore
     class DirectedAcyclicGraph
     {
     public:
-        void setup(alloc_t* allocator);
+        void Setup(alloc_t* allocator);
 
         DAGNode*  GetNode(DAGNodeID id) const;
         DAGEdge*  GetEdge(DAGEdgeID id) const;
@@ -120,6 +121,7 @@ namespace ncore
         void LockNode(DAGNodeID node);
         bool IsNodeLocked(DAGNodeID node) const;
         void Cull(alloc_t* allocator);
+        void CullNode(DAGNodeID node);
         bool IsNodeCulled(DAGNodeID node) const;
 
         void GetIncomingEdges(DAGNodeID node, alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const;
@@ -132,7 +134,7 @@ namespace ncore
         ascii::prune ExportGraphviz(alloc_t* allocator);
 
     private:
-    alloc_t* m_allocator;
+        alloc_t*                                  m_allocator;
         nobject::nobjects_with_components::pool_t m_pool;
     };
 
