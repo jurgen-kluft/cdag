@@ -168,10 +168,33 @@ namespace ncore
     namespace EGraphShape
     {
         typedef u32   shape_t;
-        const shape_t Rectangle = 0;
-        const shape_t Max       = 1;
+
+        const shape_t ShapeBox       = 0;
+        const shape_t ShapePolygon   = 1;
+        const shape_t ShapeEllipse   = 2;
+        const shape_t ShapeOval      = 3;
+        const shape_t ShapeCircle    = 4;
+        const shape_t ShapePoint     = 5;
+        const shape_t ShapeEgg       = 6;
+        const shape_t ShapeTriangle  = 7;
+        const shape_t ShapeNone      = 8;
+        const shape_t ShapeDiamond   = 9;
+        const shape_t ShapeRectangle = 10;
+        const shape_t ShapeSquare    = 11;
+        const shape_t Max            = 12;
 
         const char* ToString(shape_t value);
+
+        typedef u32 attribute_t;
+
+        const attribute_t AttributeSolid     = 1;
+        const attribute_t AttributeDashed    = 2;
+        const attribute_t AttributeDotted    = 3;
+        const attribute_t AttributeBold      = 4;
+        const attribute_t AttributeRounded   = 5;
+        const attribute_t AttributeFilled    = 6;
+        const attribute_t AttributeStriped   = 7;
+
     } // namespace EGraphShape
 
     namespace EDagComponents

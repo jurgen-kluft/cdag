@@ -72,7 +72,7 @@ namespace ncore
             {
                 writer.write(EGraphColor::DarkOliveGreen);
                 writer.write(EGraphColor::DarkOliveGreen);
-                writer.write(EGraphShape::Rectangle);
+                writer.write(EGraphShape::ShapeRectangle);
                 writer.write((u32)0xFFFFFFFF); // Label ID None
             }
         }
