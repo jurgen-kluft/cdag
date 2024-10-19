@@ -10,10 +10,11 @@
 
 namespace ncore
 {
-    using DAGObjectID   = nobject::handle_t;
-    using DAGNodeID     = DAGObjectID;
-    using DAGEdgeID     = DAGObjectID;
-    using DAGEdgeNodeID = DAGObjectID;
+    using DAGObjectID     = nobject::handle_t;
+    using DAGNodeID       = DAGObjectID;
+    using DAGEdgeID       = DAGObjectID;
+    using DAGEdgeNodeID   = DAGObjectID;
+    using DAGAttachmentID = DAGObjectID;
 
     struct DAGEdgeNode
     {
@@ -34,8 +35,8 @@ namespace ncore
 
     struct DAGEdge
     {
-        DECLARE_OBJECT_TYPE(EDagObjects::Edge);
         DCORE_CLASS_PLACEMENT_NEW_DELETE
+
         DAGEdgeNode m_from;
         DAGEdgeNode m_to;
 
@@ -49,8 +50,8 @@ namespace ncore
 
     struct DAGNode
     {
-        DECLARE_OBJECT_TYPE(EDagObjects::Node);
         DCORE_CLASS_PLACEMENT_NEW_DELETE
+
         DAGEdgeID m_Outgoing;
         DAGEdgeID m_Incoming;
     };
@@ -96,7 +97,6 @@ namespace ncore
 
     struct DAGNodeViz
     {
-        DECLARE_COMPONENT_TYPE(EDagComponents::VizComponent);
         DCORE_CLASS_PLACEMENT_NEW_DELETE
         EGraphColor::VALUE m_NodeColor;
         EGraphColor::VALUE m_EdgeColor;
@@ -106,12 +106,14 @@ namespace ncore
     class DirectedAcyclicGraph
     {
     public:
-        void Setup(alloc_t* allocator);
+        void Setup(alloc_t* allocator, u32 max_nodes, u32 max_edges, u32 max_node_attachments, u32 max_edge_attachments);
 
-        DAGNode*  GetNode(DAGNodeID id) const;
-        DAGEdge*  GetEdge(DAGEdgeID id) const;
-        DAGEdgeID FindEdge(DAGNodeID from, DAGNodeID to) const;
-        bool      IsEdgeValid(DAGEdgeID edge) const;
+        DAGNode*       GetNode(DAGNodeID id);
+        DAGNode const* GetNode(DAGNodeID id) const;
+        DAGEdge*       GetEdge(DAGEdgeID id);
+        DAGEdge const* GetEdge(DAGEdgeID id) const;
+        DAGEdgeID      FindEdge(DAGNodeID from, DAGNodeID to) const;
+        bool           IsEdgeValid(DAGEdgeID edge) const;
 
         DAGNodeID CreateNode();
         DAGEdgeID CreateEdge(DAGNodeID from, DAGNodeID to);
@@ -124,12 +126,15 @@ namespace ncore
         void CullNode(DAGNodeID node);
         bool IsNodeCulled(DAGNodeID node) const;
 
+        void GetActiveNodes(alloc_t* allocator, DAGNodeID*& outNodes, u32& outNumNodes) const;
         void GetIncomingEdges(DAGNodeID node, alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const;
         void GetOutgoingEdges(DAGNodeID node, alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const;
 
-        template <typename T> T*   AddDecoration(DAGObjectID o);
-        template <typename T> T*   GetDecoration(DAGObjectID o);
-        template <typename T> void RemDecoration(DAGObjectID o);
+        bool                                  HasAttachment(DAGObjectID o, u16 const attachment_id) const;
+        template <typename T> bool            RegisterAttachment(DAGObjectID o, u16 const attachment_id);
+        template <typename T> DAGAttachmentID AddAttachment(DAGObjectID o, u16 const attachment_id);
+        template <typename T> T*              GetAttachment(DAGObjectID o, u16 const attachment_id);
+        template <typename T> void            RemAttachment(DAGObjectID o, u16 const attachment_id);
 
         ascii::prune ExportGraphviz(alloc_t* allocator);
 
@@ -137,6 +142,12 @@ namespace ncore
         alloc_t*                                  m_allocator;
         nobject::nobjects_with_components::pool_t m_pool;
     };
+
+    bool                                  DirectedAcyclicGraph::HasAttachment(DAGObjectID o, u16 const attachment_id) const { return m_pool.has_component(o, attachment_id); }
+    template <typename T> bool            DirectedAcyclicGraph::RegisterAttachment(DAGObjectID o, u16 const attachment_id) { return m_pool.register_component_type<T>(o, attachment_id); }
+    template <typename T> DAGAttachmentID DirectedAcyclicGraph::AddAttachment(DAGObjectID o, u16 const attachment_id) { return m_pool.allocate_component(o, attachment_id); }
+    template <typename T> T*              DirectedAcyclicGraph::GetAttachment(DAGObjectID o, u16 const attachment_id) { return m_pool.get_component<T>(o, attachment_id); }
+    template <typename T> void            DirectedAcyclicGraph::RemAttachment(DAGObjectID o, u16 const attachment_id) { m_pool.deallocate_component(o, attachment_id); }
 
 } // namespace ncore
 

@@ -2,7 +2,7 @@ package main
 
 import (
 	ccode "github.com/jurgen-kluft/ccode"
-	cpkg "github.com/jurgen-kluft/chash/package"
+	cpkg "github.com/jurgen-kluft/cdag/package"
 )
 
 func main() {
