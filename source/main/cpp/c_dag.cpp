@@ -120,6 +120,30 @@ namespace ncore
         return (tags->m_tags & (1 << EDagTags::Culled)) != 0;
     }
 
+    void DirectedAcyclicGraph::GetAllNodes(alloc_t* allocator, DAGNodeID*& outNodes, u32& outNumNodes) const
+    {
+        outNumNodes = 0;
+        outNodes    = (DAGNodeID*)allocator->allocate(m_pool.get_number_of_objects(EDagObjects::Node) * sizeof(DAGNodeID));
+
+        nobject::handle_t handle = m_pool.iterate_objects<DAGNode>(EDagObjects::Node, nullptr);
+        while (handle != nobject::c_invalid_handle)
+        {
+            outNodes[outNumNodes++] = handle;
+        }
+    }
+
+    void DirectedAcyclicGraph::GetAllEdges(alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const
+    {
+        outNumEdges = 0;
+        outEdges    = (DAGEdgeID*)allocator->allocate(m_pool.get_number_of_objects(EDagObjects::Edge) * sizeof(DAGEdgeID));
+
+        nobject::handle_t handle = m_pool.iterate_objects<DAGNode>(EDagObjects::Edge, nullptr);
+        while (handle != nobject::c_invalid_handle)
+        {
+            outEdges[outNumEdges++] = handle;
+        }
+    }
+
     void DirectedAcyclicGraph::GetActiveNodes(alloc_t* allocator, DAGNodeID*& outNodes, u32& outNumNodes) const
     {
         outNumNodes = 0;
