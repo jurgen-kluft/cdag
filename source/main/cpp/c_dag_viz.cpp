@@ -70,8 +70,8 @@ namespace ncore
             }
             else // Default
             {
-                writer.write(EGraphColor::Darkolivegreen);
-                writer.write(EGraphColor::Darkolivegreen);
+                writer.write(EGraphColor::DarkOliveGreen);
+                writer.write(EGraphColor::DarkOliveGreen);
                 writer.write(EGraphShape::Rectangle);
                 writer.write((u32)0xFFFFFFFF); // Label ID None
             }
@@ -94,7 +94,7 @@ namespace ncore
             }
             else
             {
-                writer.write(EGraphColor::Darkolivegreen);
+                writer.write(EGraphColor::DarkOliveGreen);
                 writer.write((u32)0xFFFFFFFF); // Label ID None
             }
         }
