@@ -23,6 +23,7 @@ namespace ncore
         outSize = 0;
 
         // Directed Acyclic Graph (DAG) Export ** Simple Binary Format **
+        //   u64: File ID ' DAGViz '
         //   u32: Num Nodes
         //   [u32: Node-ID, u32: Color, u32: Shape, u32: Label ID]
         //   u32: Num Edges
