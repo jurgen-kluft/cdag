@@ -1,15 +1,11 @@
-#ignore all files
+#ignore all files and folders
 *
 !*/
 
-vendor/
+#ignore this folder
 target/
-t2-output/
-source/main/builddir/
-source/test/builddir/
-tags
 
-#except the following files
+#except the following file types
 !.gitignore
 !.clang-format
 !*.cpp
@@ -18,9 +14,10 @@ tags
 !*.h
 !*.inl
 
-!*.pl
-
 !*.go
+
+!*.md
+!*.pdf
 
 !*.cs
 !*.csproj
@@ -29,11 +26,6 @@ tags
 !*.hlsl
 !*.fragment
 
-!*.mold
-!*.sc
-!*.diagram
-
 !*.ini
 !*.bat
 
-#except the following folders
