@@ -7,13 +7,13 @@ namespace ncore
 {
     namespace EGraphColor
     {
-        const char* ToString(VALUE value) { return ""; }
+        const char* ToString(rgb_t value) { return ""; }
 
     } // namespace EGraphColor
 
     namespace EGraphShape
     {
-        const char* ToString(VALUE value) { return ""; }
+        const char* ToString(shape_t value) { return ""; }
 
     } // namespace EGraphShape
 
@@ -49,6 +49,9 @@ namespace ncore
         u8*             data = (u8*)heap->allocate(data_size);
         binary_writer_t writer(data, data + data_size);
 
+        u64 const file_id = 0x2044414756497A20; // ' DAGViz '
+        writer.write(file_id);
+
         // Write the number of nodes
         writer.write(numNodes);
         for (s32 i = 0; i < numNodes; ++i)
@@ -67,8 +70,8 @@ namespace ncore
             }
             else // Default
             {
-                writer.write(EGraphColor::DarkOliveGreen);
-                writer.write(EGraphColor::DarkOliveGreen);
+                writer.write(EGraphColor::Darkolivegreen);
+                writer.write(EGraphColor::Darkolivegreen);
                 writer.write(EGraphShape::Rectangle);
                 writer.write((u32)0xFFFFFFFF); // Label ID None
             }
@@ -91,7 +94,7 @@ namespace ncore
             }
             else
             {
-                writer.write(EGraphColor::DarkOliveGreen);
+                writer.write(EGraphColor::Darkolivegreen);
                 writer.write((u32)0xFFFFFFFF); // Label ID None
             }
         }
