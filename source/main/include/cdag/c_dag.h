@@ -9,31 +9,25 @@
 
 namespace ncore
 {
-    using DAGObjectID     = nobject::handle_t;
-    using DAGNodeID       = DAGObjectID;
-    using DAGEdgeID       = DAGObjectID;
-    using DAGEdgeNodeID   = DAGObjectID;
-    using DAGAttachmentID = DAGObjectID;
+    struct DAGNode;
+    struct DAGEdge;
 
     struct DAGEdgeNode
     {
-        DAGNodeID m_node;
-        DAGEdgeID m_next;
-        DAGEdgeID m_prev;
+        DAGNode* m_node;
+        DAGEdge* m_next;
+        DAGEdge* m_prev;
     };
 
     namespace EDagObjects
     {
-        enum VALUE
-        {
-            Edge = 0,
-            Node = 1,
-            Tags = 2,
-        };
-    }
+        const u16 Node = 0;
+        const u16 Edge = 1;
+    } // namespace EDagObjects
 
     struct DAGEdge
     {
+        D_DECLARE_OBJECT_TYPE(EDagObjects::Edge);
         DCORE_CLASS_PLACEMENT_NEW_DELETE
 
         DAGEdgeNode m_from;
@@ -42,72 +36,68 @@ namespace ncore
 
     struct DAGNode
     {
+        D_DECLARE_OBJECT_TYPE(EDagObjects::Node);
         DCORE_CLASS_PLACEMENT_NEW_DELETE
 
-        DAGEdgeID m_Outgoing;
-        DAGEdgeID m_Incoming;
+        DAGEdge* m_Outgoing;
+        DAGEdge* m_Incoming;
     };
 
     namespace EDagComponents
     {
+        const u16 Tags = 0;
     }
 
     namespace EDagTags
     {
-        enum VALUE
-        {
-            Locked = 0,
-            Culled = 1
-        };
-    }
+        const s8 Locked = 0;
+        const s8 Culled = 1;
+    } // namespace EDagTags
 
     class DirectedAcyclicGraph
     {
     public:
         void Setup(alloc_t* allocator, u32 max_nodes, u32 max_edges, u32 max_node_attachments, u32 max_edge_attachments);
+        void Teardown();
 
-        DAGNode*       GetNode(DAGNodeID id);
-        DAGNode const* GetNode(DAGNodeID id) const;
-        DAGEdge*       GetEdge(DAGEdgeID id);
-        DAGEdge const* GetEdge(DAGEdgeID id) const;
-        DAGEdgeID      FindEdge(DAGNodeID from, DAGNodeID to) const;
-        bool           IsEdgeValid(DAGEdgeID edge) const;
+        DAGEdge* FindEdge(DAGNode const* from, DAGNode const* to) const;
+        bool     IsEdgeValid(DAGEdge const* edge) const;
 
-        DAGNodeID CreateNode();
-        DAGEdgeID CreateEdge(DAGNodeID from, DAGNodeID to);
+        DAGNode* CreateNode();
+        DAGEdge* CreateEdge(DAGNode* from, DAGNode* to);
 
         void ClearConnectivity();
 
-        void LockNode(DAGNodeID node);
-        bool IsNodeLocked(DAGNodeID node) const;
+        void LockNode(DAGNode const* node);
+        bool IsNodeLocked(DAGNode const* node) const;
         void Cull(alloc_t* allocator);
-        void CullNode(DAGNodeID node);
-        bool IsNodeCulled(DAGNodeID node) const;
+        void CullNode(DAGNode const* node);
+        bool IsNodeCulled(DAGNode const* node) const;
 
-        void GetAllNodes(alloc_t* allocator, DAGNodeID*& outNodes, u32& outNumNodes) const;
-        void GetAllEdges(alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const;
-        void GetActiveNodes(alloc_t* allocator, DAGNodeID*& outNodes, u32& outNumNodes) const;
-        void GetIncomingEdges(DAGNodeID node, alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const;
-        void GetOutgoingEdges(DAGNodeID node, alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const;
+        void GetAllNodes(alloc_t* allocator, DAGNode**& outNodes, u32& outNumNodes) const;
+        void GetAllEdges(alloc_t* allocator, DAGEdge**& outEdges, u32& outNumEdges) const;
+        void GetActiveNodes(alloc_t* allocator, DAGNode**& outNodes, u32& outNumNodes) const;
+        void GetIncomingEdges(DAGNode const* node, alloc_t* allocator, DAGEdge**& outEdges, u32& outNumEdges) const;
+        void GetOutgoingEdges(DAGNode const* node, alloc_t* allocator, DAGEdge**& outEdges, u32& outNumEdges) const;
 
-        bool                                  HasAttachment(DAGObjectID o, u16 const attachment_id) const;
-        template <typename T> bool            RegisterAttachment(DAGObjectID o, u16 const attachment_id);
-        template <typename T> DAGAttachmentID AddAttachment(DAGObjectID o, u16 const attachment_id);
-        template <typename T> T*              GetAttachment(DAGObjectID o, u16 const attachment_id);
-        template <typename T> T const*        GetAttachment(DAGObjectID o, u16 const attachment_id) const;
-        template <typename T> void            RemAttachment(DAGObjectID o, u16 const attachment_id);
+        template <typename U, typename T> bool     HasAttachment(T const* obj) const;
+        template <typename T, typename U> bool     RegisterAttachment();
+        template <typename U, typename T> U*       AddAttachment(T* obj);
+        template <typename U, typename T> U*       GetAttachment(T* obj);
+        template <typename U, typename T> U const* GetAttachment(T* obj) const;
+        template <typename U, typename T> void     RemAttachment(T* obj);
 
     private:
         alloc_t*                                  m_allocator;
         nobject::nobjects_with_components::pool_t m_pool;
     };
 
-    bool                                  DirectedAcyclicGraph::HasAttachment(DAGObjectID o, u16 const attachment_id) const { return m_pool.has_component(o, attachment_id); }
-    template <typename T> bool            DirectedAcyclicGraph::RegisterAttachment(DAGObjectID o, u16 const attachment_id) { return m_pool.register_component_type<T>(o, attachment_id); }
-    template <typename T> DAGAttachmentID DirectedAcyclicGraph::AddAttachment(DAGObjectID o, u16 const attachment_id) { return m_pool.allocate_component(o, attachment_id); }
-    template <typename T> T*              DirectedAcyclicGraph::GetAttachment(DAGObjectID o, u16 const attachment_id) { return m_pool.get_component<T>(o, attachment_id); }
-    template <typename T> T const*        DirectedAcyclicGraph::GetAttachment(DAGObjectID o, u16 const attachment_id) const { return m_pool.get_component<T>(o, attachment_id); }
-    template <typename T> void            DirectedAcyclicGraph::RemAttachment(DAGObjectID o, u16 const attachment_id) { m_pool.deallocate_component(o, attachment_id); }
+    template <typename U, typename T> bool     DirectedAcyclicGraph::HasAttachment(T const* obj) const { return m_pool.has_component<U, T>(obj); }
+    template <typename T, typename U> bool     DirectedAcyclicGraph::RegisterAttachment() { return m_pool.register_component<T, U>(); }
+    template <typename U, typename T> U*       DirectedAcyclicGraph::AddAttachment(T* obj) { return m_pool.allocate_component<U, T>(obj); }
+    template <typename U, typename T> U*       DirectedAcyclicGraph::GetAttachment(T* obj) { return m_pool.get_component<U, T>(obj); }
+    template <typename U, typename T> U const* DirectedAcyclicGraph::GetAttachment(T* obj) const { return m_pool.get_component<U, T>(obj); }
+    template <typename U, typename T> void     DirectedAcyclicGraph::RemAttachment(T* obj) { m_pool.deallocate_component<U, T>(obj); }
 
 } // namespace ncore
 

@@ -6,6 +6,7 @@ namespace ncore
 {
     struct DAGNodeTags
     {
+        D_DECLARE_COMPONENT_TYPE(EDagComponents::Tags);
         u64 m_tags;
     };
 
@@ -14,76 +15,68 @@ namespace ncore
         m_allocator = allocator;
         m_pool.setup(allocator, 128, 128);
 
-        m_pool.register_object_type<DAGNode>(EDagObjects::Node, max_nodes, max_node_attachments);
-        m_pool.register_object_type<DAGEdge>(EDagObjects::Edge, max_edges, max_edge_attachments);
+        m_pool.register_object<DAGNode>(max_nodes, max_node_attachments);
+        m_pool.register_object<DAGEdge>(max_edges, max_edge_attachments);
 
         // DAGNodes have tags
-        m_pool.register_component_type<DAGNodeTags>(EDagObjects::Node, EDagObjects::Tags);
+        m_pool.register_component<DAGNode, DAGNodeTags>();
     }
 
-    DAGNode*       DirectedAcyclicGraph::GetNode(DAGNodeID id) { return m_pool.get_object<DAGNode>(id); }
-    DAGNode const* DirectedAcyclicGraph::GetNode(DAGNodeID id) const { return m_pool.get_object<DAGNode>(id); }
-    DAGEdge*       DirectedAcyclicGraph::GetEdge(DAGEdgeID id) { return m_pool.get_object<DAGEdge>(id); }
-    DAGEdge const* DirectedAcyclicGraph::GetEdge(DAGEdgeID id) const { return m_pool.get_object<DAGEdge>(id); }
+    void DirectedAcyclicGraph::Teardown() { m_pool.teardown(); }
 
-    DAGEdgeID DirectedAcyclicGraph::FindEdge(DAGNodeID from, DAGNodeID to) const
+    DAGEdge* DirectedAcyclicGraph::FindEdge(DAGNode const* from, DAGNode const* to) const
     {
-        // This is a directed graph, so we have to look at the outgoing edges.
-        DAGNode const* pNode = GetNode(from);
-
         // Iterate over the list of edges that are going out from the node with the id 'from'.
         // See if there are any edges that are connected to the node with the id 'to'.
-        DAGEdgeID edge = pNode->m_Outgoing;
-        while (edge != nobject::c_invalid_handle)
+        DAGEdge* edge = from->m_Outgoing;
+        while (edge != nullptr)
         {
-            if (GetEdge(edge)->m_to.m_node == to)
+            if (edge->m_to.m_node == to)
             {
                 return edge;
             }
-            edge = GetEdge(edge)->m_from.m_next;
+            edge = edge->m_from.m_next;
         }
 
-        return nobject::c_invalid_handle;
+        return nullptr;
     }
 
-    bool DirectedAcyclicGraph::IsEdgeValid(DAGEdgeID edgeId) const
+    bool DirectedAcyclicGraph::IsEdgeValid(DAGEdge const* edge) const { return !IsNodeCulled(edge->m_from.m_node) && !IsNodeCulled(edge->m_to.m_node); }
+
+    DAGNode* DirectedAcyclicGraph::CreateNode()
     {
-        DAGEdge const* edge = GetEdge(edgeId);
-        return !IsNodeCulled(edge->m_from.m_node) && !IsNodeCulled(edge->m_to.m_node);
+        DAGNode* node     = m_pool.allocate_object<DAGNode>();
+        node->m_Incoming  = nullptr;
+        node->m_Outgoing  = nullptr;
+        DAGNodeTags* tags = m_pool.allocate_component<DAGNodeTags>(node);
+        tags->m_tags      = 0;
+        return node;
     }
 
-    DAGNodeID DirectedAcyclicGraph::CreateNode()
+    DAGEdge* DirectedAcyclicGraph::CreateEdge(DAGNode* from, DAGNode* to)
     {
-        DAGNodeID nodeId = m_pool.allocate_object(EDagObjects::Node);
-        DAGNode*  node   = m_pool.get_object<DAGNode>(nodeId);
-        node->m_Incoming = nobject::c_invalid_handle;
-        node->m_Outgoing = nobject::c_invalid_handle;
-        m_pool.allocate_component(nodeId, EDagObjects::Tags);
-        return nodeId;
-    }
+        DAGEdge* edge = m_pool.allocate_object<DAGEdge>();
 
-    DAGEdgeID DirectedAcyclicGraph::CreateEdge(DAGNodeID fromId, DAGNodeID toId)
-    {
-        DAGEdgeID edgeId = m_pool.allocate_object(EDagObjects::Edge);
-        DAGEdge*  edge   = m_pool.get_object<DAGEdge>(edgeId);
+        edge->m_from.m_next = from->m_Outgoing;
+        edge->m_from.m_prev = nullptr;
+        ;
+        edge->m_from.m_node = from;
+        if (from->m_Outgoing != nullptr)
+        {
+            from->m_Outgoing->m_from.m_prev = edge;
+        }
+        from->m_Outgoing = edge;
 
-        DAGNode* from               = GetNode(fromId);
-        edge->m_from.m_next         = from->m_Outgoing;
-        edge->m_from.m_prev         = nobject::c_invalid_handle;
-        edge->m_from.m_node         = fromId;
-        DAGEdge* fromOutgoing       = GetEdge(from->m_Outgoing);
-        fromOutgoing->m_from.m_prev = edgeId;
-        from->m_Outgoing            = edgeId;
+        edge->m_to.m_next = to->m_Incoming;
+        edge->m_to.m_prev = nullptr;
+        edge->m_to.m_node = to;
+        if (to->m_Incoming != nullptr)
+        {
+            to->m_Incoming->m_to.m_prev = edge;
+        }
+        to->m_Incoming = edge;
 
-        DAGNode* to             = GetNode(toId);
-        edge->m_to.m_next       = to->m_Incoming;
-        edge->m_to.m_prev       = nobject::c_invalid_handle;
-        edge->m_to.m_node       = toId;
-        DAGEdge* toIncoming     = GetEdge(to->m_Incoming);
-        toIncoming->m_to.m_prev = edgeId;
-        to->m_Incoming          = edgeId;
-
-        return edgeId;
+        return edge;
     }
 
     void DirectedAcyclicGraph::ClearConnectivity()
@@ -91,15 +84,15 @@ namespace ncore
         // todo: implement
     }
 
-    void DirectedAcyclicGraph::LockNode(DAGNodeID node)
+    void DirectedAcyclicGraph::LockNode(DAGNode const* node)
     {
-        DAGNodeTags* tags = m_pool.get_component<DAGNodeTags>(node, EDagObjects::Tags);
+        DAGNodeTags* tags = m_pool.get_component<DAGNodeTags>(node);
         tags->m_tags |= (1 << EDagTags::Locked);
     }
 
-    bool DirectedAcyclicGraph::IsNodeLocked(DAGNodeID node) const
+    bool DirectedAcyclicGraph::IsNodeLocked(DAGNode const* node) const
     {
-        DAGNodeTags const* tags = m_pool.get_component<DAGNodeTags>(node, EDagObjects::Tags);
+        DAGNodeTags const* tags = m_pool.get_component<DAGNodeTags>(node);
         return (tags->m_tags & (1 << EDagTags::Locked)) != 0;
     }
 
@@ -108,108 +101,109 @@ namespace ncore
         // TODO Cull the nodes that end up with a reference count of 0
     }
 
-    void DirectedAcyclicGraph::CullNode(DAGNodeID _node)
+    void DirectedAcyclicGraph::CullNode(DAGNode const* _node)
     {
-        DAGNodeTags* tags = m_pool.get_component<DAGNodeTags>(_node, EDagObjects::Tags);
+        DAGNodeTags* tags = m_pool.get_component<DAGNodeTags>(_node);
         tags->m_tags |= (1 << EDagTags::Culled);
     }
 
-    bool DirectedAcyclicGraph::IsNodeCulled(DAGNodeID _node) const
+    bool DirectedAcyclicGraph::IsNodeCulled(DAGNode const* _node) const
     {
-        DAGNodeTags const* tags = m_pool.get_component<DAGNodeTags>(_node, EDagObjects::Tags);
+        DAGNodeTags const* tags = m_pool.get_component<DAGNodeTags>(_node);
         return (tags->m_tags & (1 << EDagTags::Culled)) != 0;
     }
 
-    void DirectedAcyclicGraph::GetAllNodes(alloc_t* allocator, DAGNodeID*& outNodes, u32& outNumNodes) const
+    void DirectedAcyclicGraph::GetAllNodes(alloc_t* allocator, DAGNode**& outNodes, u32& outNumNodes) const
     {
-        outNumNodes = 0;
-        outNodes    = (DAGNodeID*)allocator->allocate(m_pool.get_number_of_objects(EDagObjects::Node) * sizeof(DAGNodeID));
+        outNumNodes = m_pool.get_number_of_objects<DAGNode>();
+        outNodes    = (DAGNode**)allocator->allocate(outNumNodes * sizeof(DAGNode*));
 
-        nobject::handle_t handle = m_pool.iterate_objects<DAGNode>(EDagObjects::Node, nullptr);
-        while (handle != nobject::c_invalid_handle)
+        u32      i    = 0;
+        DAGNode* iter = m_pool.begin<DAGNode>();
+        while (iter != nullptr)
         {
-            outNodes[outNumNodes++] = handle;
+            outNodes[i++] = iter;
+            iter          = m_pool.next(iter);
         }
     }
 
-    void DirectedAcyclicGraph::GetAllEdges(alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const
+    void DirectedAcyclicGraph::GetAllEdges(alloc_t* allocator, DAGEdge**& outEdges, u32& outNumEdges) const
     {
-        outNumEdges = 0;
-        outEdges    = (DAGEdgeID*)allocator->allocate(m_pool.get_number_of_objects(EDagObjects::Edge) * sizeof(DAGEdgeID));
+        outNumEdges = m_pool.get_number_of_objects<DAGEdge>();
+        outEdges    = (DAGEdge**)allocator->allocate(outNumEdges * sizeof(DAGEdge*));
 
-        nobject::handle_t handle = m_pool.iterate_objects<DAGNode>(EDagObjects::Edge, nullptr);
-        while (handle != nobject::c_invalid_handle)
+        u32      i    = 0;
+        DAGEdge* iter = m_pool.begin<DAGEdge>();
+        while (iter != nullptr)
         {
-            outEdges[outNumEdges++] = handle;
+            outEdges[i++] = iter;
+            iter          = m_pool.next(iter);
         }
     }
 
-    void DirectedAcyclicGraph::GetActiveNodes(alloc_t* allocator, DAGNodeID*& outNodes, u32& outNumNodes) const
+    void DirectedAcyclicGraph::GetActiveNodes(alloc_t* allocator, DAGNode**& outNodes, u32& outNumNodes) const
     {
         outNumNodes = 0;
-        outNodes    = (DAGNodeID*)allocator->allocate(m_pool.get_number_of_objects(EDagObjects::Node) * sizeof(DAGNodeID));
+        outNodes    = (DAGNode**)allocator->allocate(m_pool.get_number_of_objects<DAGNode>() * sizeof(DAGNode*));
 
-        nobject::handle_t handle = m_pool.iterate_objects<DAGNode>(EDagObjects::Node, nullptr);
-        while (handle != nobject::c_invalid_handle)
+        DAGNode* iter = m_pool.begin<DAGNode>();
+        while (iter != nullptr)
         {
-            if (!IsNodeCulled(handle))
+            if (!IsNodeCulled(iter))
             {
-                outNodes[outNumNodes++] = handle;
+                outNodes[outNumNodes++] = iter;
             }
+            iter = m_pool.next(iter);
         }
     }
 
-    void DirectedAcyclicGraph::GetIncomingEdges(DAGNodeID _node, alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const
+    void DirectedAcyclicGraph::GetIncomingEdges(DAGNode const* _node, alloc_t* allocator, DAGEdge**& outEdges, u32& outNumEdges) const
     {
-        DAGNode const* node = GetNode(_node);
-
         // Count the number of incoming edges on this node
-        u32       numEdges = 0;
-        DAGEdgeID edge     = node->m_Incoming;
-        while (edge != nobject::c_invalid_handle)
+        u32      numEdges = 0;
+        DAGEdge* edge     = _node->m_Incoming;
+        while (edge != nullptr)
         {
             numEdges++;
-            edge = GetEdge(edge)->m_to.m_next;
+            edge = edge->m_to.m_next;
         }
 
         // Allocate memory for the outgoing edges
-        outEdges    = (DAGEdgeID*)allocator->allocate(numEdges * sizeof(DAGEdgeID));
+        outEdges    = (DAGEdge**)allocator->allocate(numEdges * sizeof(DAGEdge*));
         outNumEdges = numEdges;
 
         // Copy the incoming edges to the output array
         u32 i = 0;
-        edge  = node->m_Incoming;
-        while (edge != nobject::c_invalid_handle)
+        edge  = _node->m_Incoming;
+        while (edge != nullptr)
         {
             outEdges[i++] = edge;
-            edge          = GetEdge(edge)->m_to.m_next;
+            edge          = edge->m_to.m_next;
         }
     }
 
-    void DirectedAcyclicGraph::GetOutgoingEdges(DAGNodeID _node, alloc_t* allocator, DAGEdgeID*& outEdges, u32& outNumEdges) const
+    void DirectedAcyclicGraph::GetOutgoingEdges(DAGNode const* _node, alloc_t* allocator, DAGEdge**& outEdges, u32& outNumEdges) const
     {
-        DAGNode const* node = GetNode(_node);
-
         // Count the number of outgoing edges on this node
-        u32       numEdges = 0;
-        DAGEdgeID edge     = node->m_Outgoing;
-        while (edge != nobject::c_invalid_handle)
+        u32      numEdges = 0;
+        DAGEdge* edge     = _node->m_Outgoing;
+        while (edge != nullptr)
         {
             numEdges++;
-            edge = GetEdge(edge)->m_from.m_next;
+            edge = edge->m_from.m_next;
         }
 
         // Allocate memory for the outgoing edges
-        outEdges    = (DAGEdgeID*)allocator->allocate(numEdges * sizeof(DAGEdgeID));
+        outEdges    = (DAGEdge**)allocator->allocate(numEdges * sizeof(DAGEdge*));
         outNumEdges = numEdges;
 
         // Copy the outgoing edges to the output array
         u32 i = 0;
-        edge  = node->m_Outgoing;
-        while (edge != nobject::c_invalid_handle)
+        edge  = _node->m_Outgoing;
+        while (edge != nullptr)
         {
             outEdges[i++] = edge;
-            edge          = GetEdge(edge)->m_from.m_next;
+            edge          = edge->m_from.m_next;
         }
     }
 

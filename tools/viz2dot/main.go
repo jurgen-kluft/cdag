@@ -24,7 +24,7 @@ import (
 //
 
 type VizNode struct {
-	ID      uint32
+	ID      uint64
 	Color   uint32
 	Shape   uint32
 	LabelID uint32
@@ -33,8 +33,8 @@ type VizNode struct {
 }
 
 type VizEdge struct {
-	From    uint32
-	To      uint32
+	From    uint64
+	To      uint64
 	Color   uint32
 	LabelID uint32
 }
@@ -48,7 +48,7 @@ type Viz struct {
 	FileID   uint64
 	NumNodes uint32
 	NumEdges uint32
-	Nodes    map[uint32]*VizNode
+	Nodes    map[uint64]*VizNode
 	Edges    []*VizEdge
 	Labels   map[uint32]VizLabel
 }
@@ -60,6 +60,8 @@ func main() {
 	// --output is a flag that specifies the output file
 	output_filename := flag.String("output", "", "Output file")
 
+	flag.Parse()
+
 	// Read binary viz file
 	input_file, err := os.Open(*input_filename)
 	if err != nil {
@@ -68,7 +70,7 @@ func main() {
 	defer input_file.Close()
 
 	// Parse binary viz file
-	viz := &Viz{}
+	viz := &Viz{Nodes: make(map[uint64]*VizNode), Labels: make(map[uint32]VizLabel)}
 	reader := bufio.NewReader(input_file)
 	binary.Read(reader, binary.LittleEndian, &viz.FileID)
 	binary.Read(reader, binary.LittleEndian, &viz.NumNodes)
@@ -90,22 +92,37 @@ func main() {
 		viz.Edges = append(viz.Edges, edge)
 	}
 	for {
-		label := VizLabel{}
-		err := binary.Read(reader, binary.LittleEndian, &label.ID)
-		if err != nil {
-			break
-		}
 		var strID uint32
 		var strLen uint32
 		var strFormat uint8
-		binary.Read(reader, binary.LittleEndian, &strID)
-		binary.Read(reader, binary.LittleEndian, &strLen)
-		binary.Read(reader, binary.LittleEndian, &strFormat)
+		err = binary.Read(reader, binary.LittleEndian, &strID)
+		if err != nil {
+			break
+		}
+		err = binary.Read(reader, binary.LittleEndian, &strLen)
+		if err != nil {
+			break
+		}
+		err = binary.Read(reader, binary.LittleEndian, &strFormat)
+		if err != nil {
+			break
+		}
 		// Read string which is made up of 64 bytes
 		str := make([]byte, 64)
-		binary.Read(reader, binary.LittleEndian, &str)
+		err = binary.Read(reader, binary.LittleEndian, &str)
+		if err != nil {
+			break
+		}
+		strLen = 0
+		for str[strLen] != 0 {
+			strLen++
+		}
+		str = str[:strLen]
+
+		label := VizLabel{}
+		label.ID = strID
 		label.Label = string(str)
-		viz.Labels[label.ID] = label
+		viz.Labels[strID] = label
 	}
 
 	// Create a new graph
@@ -125,12 +142,14 @@ func main() {
 
 	g.setTitle("Directed Acyclic Render Graph")
 
-	output_file, err := os.Open(*output_filename)
+	// Open output filename for writing
+	output_file, err := os.Create(*output_filename)
 	if err != nil {
 		panic(err)
 	}
 	defer output_file.Close()
 	output_writer := bufio.NewWriter(output_file)
+	defer output_writer.Flush()
 	g.GenerateDOT(output_writer)
 }
 

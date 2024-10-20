@@ -199,27 +199,31 @@ namespace ncore
 
     namespace EDagComponents
     {
-        const u16 NodeVizComponent = 0;
-        const u16 EdgeVizComponent = 1;
+        const u16 NodeVizComponent = 1;
+        const u16 EdgeVizComponent = 2;
     } // namespace EDagComponents
 
     struct DAGNodeViz
     {
+        D_DECLARE_COMPONENT_TYPE(EDagComponents::NodeVizComponent);
         DCORE_CLASS_PLACEMENT_NEW_DELETE
-        EGraphColor::rgb_t   m_NodeColor;
-        EGraphColor::rgb_t   m_EdgeColor;
+        EGraphColor::rgb_t   m_Color;
         EGraphShape::shape_t m_Shape;
         char                 m_Label[64];
     };
 
     struct DAGEdgeViz
     {
+        D_DECLARE_COMPONENT_TYPE(EDagComponents::EdgeVizComponent);
         DCORE_CLASS_PLACEMENT_NEW_DELETE
         EGraphColor::rgb_t m_EdgeColor;
         char               m_Label[64];
     };
 
-    bool Export(DirectedAcyclicGraph const& dag, alloc_t* stack, alloc_t* heap, void*& outData, u32& outSize);
+    void SetLabel(DAGNodeViz* viz, char const* label);
+    void SetLabel(DAGEdgeViz* viz, char const* label);
+
+    bool Export(DirectedAcyclicGraph const& dag, alloc_t* stack, alloc_t* heap, byte*& outData, u32& outSize);
 
 } // namespace ncore
 
