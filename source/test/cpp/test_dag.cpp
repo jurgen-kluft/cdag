@@ -86,6 +86,92 @@ UNITTEST_SUITE_BEGIN(dag)
             dag.Teardown();
         }
 
+        UNITTEST_TEST(iterate_incoming)
+        {
+            DirectedAcyclicGraph dag;
+
+            dag.Setup(Allocator, 64, 64, 16, 16);
+
+            DAGNode* nodeA = dag.CreateNode();
+            DAGNode* nodeB = dag.CreateNode();
+            DAGNode* nodeC = dag.CreateNode();
+            DAGNode* nodeD = dag.CreateNode();
+
+            DAGEdge* edgeAB = dag.CreateEdge(nodeA, nodeB);
+            DAGEdge* edgeAD = dag.CreateEdge(nodeA, nodeD);
+            DAGEdge* edgeBC = dag.CreateEdge(nodeB, nodeC);
+            DAGEdge* edgeBA = dag.CreateEdge(nodeB, nodeA);
+
+            DAGEdge* findAB = dag.FindEdge(nodeA, nodeB);
+            DAGEdge* findAD = dag.FindEdge(nodeA, nodeD);
+            DAGEdge* findBC = dag.FindEdge(nodeB, nodeC);
+            DAGEdge* findBA = dag.FindEdge(nodeB, nodeA);
+
+            DAGEdge** incomingEdges;
+            u32      numIncomingEdges = 0;
+            dag.GetIncomingEdges(nodeB, Allocator, incomingEdges, numIncomingEdges);
+
+            CHECK_TRUE(numIncomingEdges == 1);
+            CHECK_TRUE(incomingEdges[0] == edgeAB);
+
+            Allocator->deallocate(incomingEdges);
+
+            DAGEdge** incomingEdgesA;
+            u32      numIncomingEdgesA = 0;
+            dag.GetIncomingEdges(nodeA, Allocator, incomingEdgesA, numIncomingEdgesA);
+
+            CHECK_TRUE(numIncomingEdgesA == 1);
+            CHECK_TRUE(incomingEdgesA[0] == edgeBA);
+
+            Allocator->deallocate(incomingEdgesA);
+
+            dag.Teardown();
+        }
+
+        UNITTEST_TEST(iterate_outgoing)
+        {
+            DirectedAcyclicGraph dag;
+
+            dag.Setup(Allocator, 64, 64, 16, 16);
+
+            DAGNode* nodeA = dag.CreateNode();
+            DAGNode* nodeB = dag.CreateNode();
+            DAGNode* nodeC = dag.CreateNode();
+            DAGNode* nodeD = dag.CreateNode();
+
+            DAGEdge* edgeAB = dag.CreateEdge(nodeA, nodeB);
+            DAGEdge* edgeAD = dag.CreateEdge(nodeA, nodeD);
+            DAGEdge* edgeBC = dag.CreateEdge(nodeB, nodeC);
+            DAGEdge* edgeBA = dag.CreateEdge(nodeB, nodeA);
+
+            DAGEdge* findAB = dag.FindEdge(nodeA, nodeB);
+            DAGEdge* findAD = dag.FindEdge(nodeA, nodeD);
+            DAGEdge* findBC = dag.FindEdge(nodeB, nodeC);
+            DAGEdge* findBA = dag.FindEdge(nodeB, nodeA);
+
+            DAGEdge** outgoingEdges;
+            u32      numOutgoingEdges = 0;
+            dag.GetOutgoingEdges(nodeB, Allocator, outgoingEdges, numOutgoingEdges);
+
+            CHECK_TRUE(numOutgoingEdges == 2);
+            CHECK_TRUE(outgoingEdges[0] == edgeBC || outgoingEdges[0] == edgeBA);
+            CHECK_TRUE(outgoingEdges[1] == edgeBC || outgoingEdges[1] == edgeBA);
+
+            Allocator->deallocate(outgoingEdges);
+
+            DAGEdge** outgoingEdgesA;
+            u32      numOutgoingEdgesA = 0;
+            dag.GetOutgoingEdges(nodeA, Allocator, outgoingEdgesA, numOutgoingEdgesA);
+
+            CHECK_TRUE(numOutgoingEdgesA == 2);
+            CHECK_TRUE(outgoingEdgesA[0] == edgeAB || outgoingEdgesA[0] == edgeAD);
+            CHECK_TRUE(outgoingEdgesA[1] == edgeAD || outgoingEdgesA[1] == edgeAB);
+
+            Allocator->deallocate(outgoingEdgesA);
+
+            dag.Teardown();
+        }
+
         static DAGNode* CreateNode(DirectedAcyclicGraph & dag, EGraphColor::rgb_t color, EGraphShape::shape_t shape, const char* label)
         {
             DAGNode*    node = dag.CreateNode();
@@ -113,6 +199,7 @@ UNITTEST_SUITE_BEGIN(dag)
 
             dag.Setup(Allocator, 64, 64, 16, 16);
 
+            // Make sure we can decorate the nodes and edges with visual information
             dag.RegisterAttachment<DAGNode, DAGNodeViz>();
             dag.RegisterAttachment<DAGEdge, DAGEdgeViz>();
 
