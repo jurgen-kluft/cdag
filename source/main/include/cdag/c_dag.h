@@ -45,13 +45,20 @@ namespace ncore
 
     namespace EDagComponents
     {
-        const u16 Tags = 0;
+        const u16 RefCount = 0;
     }
+
+    struct DAGNodeRefCount
+    {
+        D_DECLARE_COMPONENT_TYPE(EDagComponents::RefCount);
+        DCORE_CLASS_PLACEMENT_NEW_DELETE
+        u32 m_RefCount;
+    };
 
     namespace EDagTags
     {
-        const s8 Locked = 0;
-        const s8 Culled = 1;
+        const s8 Locked     = 0;
+        const s8 Culled     = 1;
     } // namespace EDagTags
 
     class DirectedAcyclicGraph
