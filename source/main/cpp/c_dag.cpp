@@ -4,9 +4,14 @@
 
 namespace ncore
 {
-    void DirectedAcyclicGraph::Setup(alloc_t* allocator, u32 max_nodes, u32 max_edges, u32 max_node_attachments, u32 max_edge_attachments)
+    void DirectedAcyclicGraph::Setup(alloc_t* allocator, u32 max_nodes, u32 max_node_attachments, u32 max_node_tags, u32 max_edges, u32 max_edge_attachments, u32 max_edge_tags)
     {
-        m_allocator = allocator;
+        m_allocator            = allocator;
+        m_max_nodes            = max_nodes;
+        m_max_edges            = max_edges;
+        m_max_node_attachments = max_node_attachments;
+        m_max_edge_attachments = max_edge_attachments;
+
         m_pool.setup(allocator, 128);
 
         m_pool.register_object<DAGNode>(max_nodes, max_node_attachments, 32);

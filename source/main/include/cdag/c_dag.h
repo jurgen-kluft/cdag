@@ -57,7 +57,7 @@ namespace ncore
     class DirectedAcyclicGraph
     {
     public:
-        void Setup(alloc_t* allocator, u32 max_nodes, u32 max_edges, u32 max_node_attachments, u32 max_edge_attachments);
+        void Setup(alloc_t* allocator, u32 max_nodes, u32 max_node_attachments, u32 max_node_tags, u32 max_edges, u32 max_edge_attachments, u32 max_edge_tags);
         void Teardown();
 
         DAGEdge* FindEdge(DAGNode const* from, DAGNode const* to) const;
