@@ -4,22 +4,13 @@
 
 namespace ncore
 {
-    struct DAGNodeTags
-    {
-        D_DECLARE_COMPONENT_TYPE(EDagComponents::Tags);
-        u64 m_tags;
-    };
-
     void DirectedAcyclicGraph::Setup(alloc_t* allocator, u32 max_nodes, u32 max_edges, u32 max_node_attachments, u32 max_edge_attachments)
     {
         m_allocator = allocator;
-        m_pool.setup(allocator, 128, 128);
+        m_pool.setup(allocator, 128);
 
-        m_pool.register_object<DAGNode>(max_nodes, max_node_attachments);
-        m_pool.register_object<DAGEdge>(max_edges, max_edge_attachments);
-
-        // DAGNodes have tags
-        m_pool.register_component<DAGNode, DAGNodeTags>();
+        m_pool.register_object<DAGNode>(max_nodes, max_node_attachments, 32);
+        m_pool.register_object<DAGEdge>(max_edges, max_edge_attachments, 32);
     }
 
     void DirectedAcyclicGraph::Teardown() { m_pool.teardown(); }
@@ -45,17 +36,15 @@ namespace ncore
 
     DAGNode* DirectedAcyclicGraph::CreateNode()
     {
-        DAGNode* node     = m_pool.allocate_object<DAGNode>();
-        node->m_Incoming  = nullptr;
-        node->m_Outgoing  = nullptr;
-        DAGNodeTags* tags = m_pool.allocate_component<DAGNodeTags>(node);
-        tags->m_tags      = 0;
+        DAGNode* node    = m_pool.create_object<DAGNode>();
+        node->m_Incoming = nullptr;
+        node->m_Outgoing = nullptr;
         return node;
     }
 
     DAGEdge* DirectedAcyclicGraph::CreateEdge(DAGNode* from, DAGNode* to)
     {
-        DAGEdge* edge = m_pool.allocate_object<DAGEdge>();
+        DAGEdge* edge = m_pool.create_object<DAGEdge>();
 
         edge->m_from.m_next = from->m_Outgoing;
         edge->m_from.m_prev = nullptr;
@@ -84,38 +73,20 @@ namespace ncore
         // todo: implement
     }
 
-    void DirectedAcyclicGraph::LockNode(DAGNode const* node)
-    {
-        DAGNodeTags* tags = m_pool.get_component<DAGNodeTags>(node);
-        tags->m_tags |= (1 << EDagTags::Locked);
-    }
-
-    bool DirectedAcyclicGraph::IsNodeLocked(DAGNode const* node) const
-    {
-        DAGNodeTags const* tags = m_pool.get_component<DAGNodeTags>(node);
-        return (tags->m_tags & (1 << EDagTags::Locked)) != 0;
-    }
+    void DirectedAcyclicGraph::LockNode(DAGNode const* node) { m_pool.add_tag<DAGNode>(node, EDagTags::Locked); }
+    bool DirectedAcyclicGraph::IsNodeLocked(DAGNode const* node) const { return m_pool.has_tag<DAGNode>(node, EDagTags::Locked); }
 
     void DirectedAcyclicGraph::Cull(alloc_t* allocator)
     {
         // TODO Cull the nodes that end up with a reference count of 0
     }
 
-    void DirectedAcyclicGraph::CullNode(DAGNode const* _node)
-    {
-        DAGNodeTags* tags = m_pool.get_component<DAGNodeTags>(_node);
-        tags->m_tags |= (1 << EDagTags::Culled);
-    }
-
-    bool DirectedAcyclicGraph::IsNodeCulled(DAGNode const* _node) const
-    {
-        DAGNodeTags const* tags = m_pool.get_component<DAGNodeTags>(_node);
-        return (tags->m_tags & (1 << EDagTags::Culled)) != 0;
-    }
+    void DirectedAcyclicGraph::CullNode(DAGNode const* _node) { m_pool.add_tag<DAGNode>(_node, EDagTags::Culled); }
+    bool DirectedAcyclicGraph::IsNodeCulled(DAGNode const* _node) const { return m_pool.has_tag<DAGNode>(_node, EDagTags::Culled); }
 
     void DirectedAcyclicGraph::GetAllNodes(alloc_t* allocator, DAGNode**& outNodes, u32& outNumNodes) const
     {
-        outNumNodes = m_pool.get_number_of_objects<DAGNode>();
+        outNumNodes = m_pool.get_number_of_instances<DAGNode>();
         outNodes    = (DAGNode**)allocator->allocate(outNumNodes * sizeof(DAGNode*));
 
         u32      i    = 0;
@@ -129,7 +100,7 @@ namespace ncore
 
     void DirectedAcyclicGraph::GetAllEdges(alloc_t* allocator, DAGEdge**& outEdges, u32& outNumEdges) const
     {
-        outNumEdges = m_pool.get_number_of_objects<DAGEdge>();
+        outNumEdges = m_pool.get_number_of_instances<DAGEdge>();
         outEdges    = (DAGEdge**)allocator->allocate(outNumEdges * sizeof(DAGEdge*));
 
         u32      i    = 0;
@@ -144,7 +115,7 @@ namespace ncore
     void DirectedAcyclicGraph::GetActiveNodes(alloc_t* allocator, DAGNode**& outNodes, u32& outNumNodes) const
     {
         outNumNodes = 0;
-        outNodes    = (DAGNode**)allocator->allocate(m_pool.get_number_of_objects<DAGNode>() * sizeof(DAGNode*));
+        outNodes    = (DAGNode**)allocator->allocate(m_pool.get_number_of_instances<DAGNode>() * sizeof(DAGNode*));
 
         DAGNode* iter = m_pool.begin<DAGNode>();
         while (iter != nullptr)

@@ -81,23 +81,34 @@ namespace ncore
         void GetOutgoingEdges(DAGNode const* node, alloc_t* allocator, DAGEdge**& outEdges, u32& outNumEdges) const;
 
         template <typename U, typename T> bool     HasAttachment(T const* obj) const;
-        template <typename T, typename U> bool     RegisterAttachment();
+        template <typename T, typename U> bool     RegisterAttachment(const char* name = "");
         template <typename U, typename T> U*       AddAttachment(T* obj);
         template <typename U, typename T> U*       GetAttachment(T* obj);
-        template <typename U, typename T> U const* GetAttachment(T* obj) const;
+        template <typename U, typename T> U const* GetAttachment(T const* obj) const;
         template <typename U, typename T> void     RemAttachment(T* obj);
 
     private:
         alloc_t*                                  m_allocator;
+        u32                                       m_max_nodes;
+        u32                                       m_max_edges;
+        u32                                       m_max_node_attachments;
+        u32                                       m_max_edge_attachments;
         nobject::nobjects_with_components::pool_t m_pool;
     };
 
-    template <typename U, typename T> bool     DirectedAcyclicGraph::HasAttachment(T const* obj) const { return m_pool.has_component<U, T>(obj); }
-    template <typename T, typename U> bool     DirectedAcyclicGraph::RegisterAttachment() { return m_pool.register_component<T, U>(); }
-    template <typename U, typename T> U*       DirectedAcyclicGraph::AddAttachment(T* obj) { return m_pool.allocate_component<U, T>(obj); }
+    template <typename U, typename T> bool DirectedAcyclicGraph::HasAttachment(T const* obj) const { return m_pool.has_component<U, T>(obj); }
+    template <typename T, typename U> bool DirectedAcyclicGraph::RegisterAttachment(const char* name)
+    {
+        if (T::NOBJECT_OBJECT_INDEX == EDagObjects::Node)
+            return m_pool.register_component<T, U>(m_max_node_attachments, name);
+        else if (T::NOBJECT_OBJECT_INDEX == EDagObjects::Edge)
+            return m_pool.register_component<T, U>(m_max_edge_attachments, name);
+        return false;
+    }
+    template <typename U, typename T> U*       DirectedAcyclicGraph::AddAttachment(T* obj) { return m_pool.add_component<U, T>(obj); }
     template <typename U, typename T> U*       DirectedAcyclicGraph::GetAttachment(T* obj) { return m_pool.get_component<U, T>(obj); }
-    template <typename U, typename T> U const* DirectedAcyclicGraph::GetAttachment(T* obj) const { return m_pool.get_component<U, T>(obj); }
-    template <typename U, typename T> void     DirectedAcyclicGraph::RemAttachment(T* obj) { m_pool.deallocate_component<U, T>(obj); }
+    template <typename U, typename T> U const* DirectedAcyclicGraph::GetAttachment(T const* obj) const { return m_pool.get_component<U, T>(obj); }
+    template <typename U, typename T> void     DirectedAcyclicGraph::RemAttachment(T* obj) { m_pool.rem_component<U, T>(obj); }
 
 } // namespace ncore
 
