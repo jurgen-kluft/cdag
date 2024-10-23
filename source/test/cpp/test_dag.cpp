@@ -35,8 +35,11 @@ UNITTEST_SUITE_BEGIN(dag)
             dag.Setup(Allocator, 64, 16, 8, 64, 16, 8);
 
             DAGNode* nodeA = dag.CreateNode();
+            CHECK_NOT_NULL(nodeA);
             DAGNode* nodeB = dag.CreateNode();
+            CHECK_NOT_NULL(nodeB);
             DAGNode* nodeC = dag.CreateNode();
+            CHECK_NOT_NULL(nodeC);
 
             dag.Teardown();
         }
@@ -48,11 +51,20 @@ UNITTEST_SUITE_BEGIN(dag)
             dag.Setup(Allocator, 64, 16, 8, 64, 16, 8);
 
             DAGNode* nodeA = dag.CreateNode();
+            CHECK_NOT_NULL(nodeA);
             DAGNode* nodeB = dag.CreateNode();
+            CHECK_NOT_NULL(nodeB);
+            CHECK_PTRS_NOT_EQUAL(nodeA, nodeB);
             DAGNode* nodeC = dag.CreateNode();
+            CHECK_NOT_NULL(nodeC);
+            CHECK_PTRS_NOT_EQUAL(nodeA, nodeC);
+            CHECK_PTRS_NOT_EQUAL(nodeB, nodeC);
 
             DAGEdge* edgeAB = dag.CreateEdge(nodeA, nodeB);
+            CHECK_NOT_NULL(edgeAB);
             DAGEdge* edgeBC = dag.CreateEdge(nodeB, nodeC);
+            CHECK_NOT_NULL(edgeBC);
+            CHECK_PTRS_NOT_EQUAL(edgeAB, edgeBC);
 
             dag.Teardown();
         }
