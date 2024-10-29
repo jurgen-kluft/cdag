@@ -12,14 +12,14 @@ namespace ncore
         m_max_node_attachments = max_node_attachments;
         m_max_edge_attachments = max_edge_attachments;
 
-        m_pool.setup(allocator, 128);
+        m_ocs.setup(allocator, 128);
 
-        m_pool.register_object<DAGNode>(max_nodes, max_node_attachments, 32);
-        m_pool.register_object<DAGEdge>(max_edges, max_edge_attachments, 32);
-        m_pool.register_component<DAGNode, DAGNodeRefCount>(m_max_nodes, "RefCount");
+        m_ocs.register_object<DAGNode>(max_nodes, max_node_attachments, 32);
+        m_ocs.register_object<DAGEdge>(max_edges, max_edge_attachments, 32);
+        m_ocs.register_component<DAGNode, DAGNodeRefCount>(m_max_nodes, "RefCount");
     }
 
-    void DirectedAcyclicGraph::Teardown() { m_pool.teardown(); }
+    void DirectedAcyclicGraph::Teardown() { m_ocs.teardown(); }
 
     DAGEdge* DirectedAcyclicGraph::FindEdge(DAGNode const* from, DAGNode const* to) const
     {
@@ -42,7 +42,7 @@ namespace ncore
 
     DAGNode* DirectedAcyclicGraph::CreateNode()
     {
-        DAGNode* node    = m_pool.create_object<DAGNode>();
+        DAGNode* node    = m_ocs.create_object<DAGNode>();
         node->m_Incoming = nullptr;
         node->m_Outgoing = nullptr;
         return node;
@@ -50,7 +50,7 @@ namespace ncore
 
     DAGEdge* DirectedAcyclicGraph::CreateEdge(DAGNode* from, DAGNode* to)
     {
-        DAGEdge* edge = m_pool.create_object<DAGEdge>();
+        DAGEdge* edge = m_ocs.create_object<DAGEdge>();
 
         edge->m_from.m_next = from->m_Outgoing;
         edge->m_from.m_prev = nullptr;
@@ -79,45 +79,45 @@ namespace ncore
         // todo: implement
     }
 
-    void DirectedAcyclicGraph::LockNode(DAGNode const* node) { m_pool.add_tag<DAGNode>(node, EDagTags::Locked); }
-    bool DirectedAcyclicGraph::IsNodeLocked(DAGNode const* node) const { return m_pool.has_tag<DAGNode>(node, EDagTags::Locked); }
+    void DirectedAcyclicGraph::LockNode(DAGNode const* node) { m_ocs.add_tag<DAGNode>(node, EDagTags::Locked); }
+    bool DirectedAcyclicGraph::IsNodeLocked(DAGNode const* node) const { return m_ocs.has_tag<DAGNode>(node, EDagTags::Locked); }
 
     void DirectedAcyclicGraph::Cull(alloc_t* allocator)
     {
         // Cull the nodes that end up with a reference count of 0
         {
-            DAGNode* iter = m_pool.begin<DAGNode>();
+            DAGNode* iter = m_ocs.begin<DAGNode>();
             while (iter != nullptr)
             {
-                DAGNodeRefCount* ref = m_pool.add_component<DAGNodeRefCount>(iter);
+                DAGNodeRefCount* ref = m_ocs.add_component<DAGNodeRefCount>(iter);
                 ref->m_RefCount      = 0;
-                iter                 = m_pool.next(iter);
+                iter                 = m_ocs.next(iter);
             }
         }
 
         {
-            DAGEdge* iter = m_pool.begin<DAGEdge>();
+            DAGEdge* iter = m_ocs.begin<DAGEdge>();
             while (iter != nullptr)
             {
                 DAGNode*         node = iter->m_from.m_node;
-                DAGNodeRefCount* ref  = m_pool.get_component<DAGNodeRefCount>(node);
+                DAGNodeRefCount* ref  = m_ocs.get_component<DAGNodeRefCount>(node);
                 ref->m_RefCount++;
-                iter = m_pool.next(iter);
+                iter = m_ocs.next(iter);
             }
         }
 
         s32       top   = 0;
-        DAGNode** stack = g_allocate_array<DAGNode*>(allocator, m_pool.get_number_of_instances<DAGNode>());
+        DAGNode** stack = g_allocate_array<DAGNode*>(allocator, m_ocs.get_number_of_instances<DAGNode>());
         {
-            DAGNode* iter = m_pool.begin<DAGNode>();
+            DAGNode* iter = m_ocs.begin<DAGNode>();
             while (iter != nullptr)
             {
-                DAGNodeRefCount* ref = m_pool.get_component<DAGNodeRefCount>(iter);
+                DAGNodeRefCount* ref = m_ocs.get_component<DAGNodeRefCount>(iter);
                 if (ref->m_RefCount == 0)
                 {
                     stack[top++] = iter;
                 }
-                iter = m_pool.next(iter);
+                iter = m_ocs.next(iter);
             }
         }
 
@@ -129,7 +129,7 @@ namespace ncore
             while (edge != nullptr)
             {
                 DAGNode*         from = edge->m_from.m_node;
-                DAGNodeRefCount* ref  = m_pool.get_component<DAGNodeRefCount>(from);
+                DAGNodeRefCount* ref  = m_ocs.get_component<DAGNodeRefCount>(from);
                 if (--ref->m_RefCount == 0)
                 {
                     stack[top++] = from;
@@ -140,67 +140,67 @@ namespace ncore
 
         g_deallocate_array(allocator, stack);
 
-        DAGNode* iter = m_pool.begin<DAGNode>();
+        DAGNode* iter = m_ocs.begin<DAGNode>();
         while (iter != nullptr)
         {
-            DAGNodeRefCount* ref = m_pool.get_component<DAGNodeRefCount>(iter);
-            if (ref->m_RefCount == 0 && !m_pool.has_tag(iter, EDagTags::Locked))
+            DAGNodeRefCount* ref = m_ocs.get_component<DAGNodeRefCount>(iter);
+            if (ref->m_RefCount == 0 && !m_ocs.has_tag(iter, EDagTags::Locked))
             {
-                m_pool.add_tag<DAGNode>(iter, EDagTags::Culled);
+                m_ocs.add_tag<DAGNode>(iter, EDagTags::Culled);
             }
             else
             {
-                m_pool.rem_tag(iter, EDagTags::Culled);
+                m_ocs.rem_tag(iter, EDagTags::Culled);
             }
-            m_pool.rem_component<DAGNodeRefCount>(iter);
-            iter = m_pool.next(iter);
+            m_ocs.rem_component<DAGNodeRefCount>(iter);
+            iter = m_ocs.next(iter);
         }
     }
 
-    void DirectedAcyclicGraph::CullNode(DAGNode const* _node) { m_pool.add_tag<DAGNode>(_node, EDagTags::Culled); }
-    bool DirectedAcyclicGraph::IsNodeCulled(DAGNode const* _node) const { return m_pool.has_tag<DAGNode>(_node, EDagTags::Culled); }
+    void DirectedAcyclicGraph::CullNode(DAGNode const* _node) { m_ocs.add_tag<DAGNode>(_node, EDagTags::Culled); }
+    bool DirectedAcyclicGraph::IsNodeCulled(DAGNode const* _node) const { return m_ocs.has_tag<DAGNode>(_node, EDagTags::Culled); }
 
     void DirectedAcyclicGraph::GetAllNodes(alloc_t* allocator, DAGNode**& outNodes, u32& outNumNodes) const
     {
-        outNumNodes = m_pool.get_number_of_instances<DAGNode>();
+        outNumNodes = m_ocs.get_number_of_instances<DAGNode>();
         outNodes    = (DAGNode**)allocator->allocate(outNumNodes * sizeof(DAGNode*));
 
         u32      i    = 0;
-        DAGNode* iter = m_pool.begin<DAGNode>();
+        DAGNode* iter = m_ocs.begin<DAGNode>();
         while (iter != nullptr)
         {
             outNodes[i++] = iter;
-            iter          = m_pool.next(iter);
+            iter          = m_ocs.next(iter);
         }
     }
 
     void DirectedAcyclicGraph::GetAllEdges(alloc_t* allocator, DAGEdge**& outEdges, u32& outNumEdges) const
     {
-        outNumEdges = m_pool.get_number_of_instances<DAGEdge>();
+        outNumEdges = m_ocs.get_number_of_instances<DAGEdge>();
         outEdges    = (DAGEdge**)allocator->allocate(outNumEdges * sizeof(DAGEdge*));
 
         u32      i    = 0;
-        DAGEdge* iter = m_pool.begin<DAGEdge>();
+        DAGEdge* iter = m_ocs.begin<DAGEdge>();
         while (iter != nullptr)
         {
             outEdges[i++] = iter;
-            iter          = m_pool.next(iter);
+            iter          = m_ocs.next(iter);
         }
     }
 
     void DirectedAcyclicGraph::GetActiveNodes(alloc_t* allocator, DAGNode**& outNodes, u32& outNumNodes) const
     {
         outNumNodes = 0;
-        outNodes    = (DAGNode**)allocator->allocate(m_pool.get_number_of_instances<DAGNode>() * sizeof(DAGNode*));
+        outNodes    = (DAGNode**)allocator->allocate(m_ocs.get_number_of_instances<DAGNode>() * sizeof(DAGNode*));
 
-        DAGNode* iter = m_pool.begin<DAGNode>();
+        DAGNode* iter = m_ocs.begin<DAGNode>();
         while (iter != nullptr)
         {
             if (!IsNodeCulled(iter))
             {
                 outNodes[outNumNodes++] = iter;
             }
-            iter = m_pool.next(iter);
+            iter = m_ocs.next(iter);
         }
     }
 
