@@ -18,12 +18,12 @@ func GetPackage() *denv.Package {
 	mainpkg.AddPackage(callocatorpkg)
 
 	// 'cdag' library
-	mainlib := denv.SetupDefaultCppLibProject("cdag", "github.com\\jurgen-kluft\\cdag")
-	mainlib.Dependencies = append(mainlib.Dependencies, callocatorpkg.GetMainLib())
+	mainlib := denv.SetupCppLibProject("cdag", "github.com\\jurgen-kluft\\cdag")
+	mainlib.AddDependencies(callocatorpkg.GetMainLib()...)
 
 	// 'cdag' unittest project
 	maintest := denv.SetupDefaultCppTestProject("cdag"+"_test", "github.com\\jurgen-kluft\\cdag")
-	maintest.Dependencies = append(maintest.Dependencies, cunittestpkg.GetMainLib())
+	maintest.AddDependencies(cunittestpkg.GetMainLib()...)
 	maintest.Dependencies = append(maintest.Dependencies, mainlib)
 
 	mainpkg.AddMainLib(mainlib)
