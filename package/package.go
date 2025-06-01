@@ -6,27 +6,39 @@ import (
 	cunittest "github.com/jurgen-kluft/cunittest/package"
 )
 
-// GetPackage returns the package object of 'cdag'
+const (
+	repo_path = "github.com\\jurgen-kluft"
+	repo_name = "cdag"
+)
+
 func GetPackage() *denv.Package {
-	// Dependencies
+	name := repo_name
+
+	// dependencies
 	cunittestpkg := cunittest.GetPackage()
-	callocatorpkg := callocator.GetPackage()
+	callocpkg := callocator.GetPackage()
 
-	// The main (cdag) package
-	mainpkg := denv.NewPackage("cdag")
+	// main package
+	mainpkg := denv.NewPackage(repo_path, repo_name)
 	mainpkg.AddPackage(cunittestpkg)
-	mainpkg.AddPackage(callocatorpkg)
+	mainpkg.AddPackage(callocpkg)
 
-	// 'cdag' library
-	mainlib := denv.SetupCppLibProject("cdag", "github.com\\jurgen-kluft\\cdag")
-	mainlib.AddDependencies(callocatorpkg.GetMainLib()...)
+	// main library
+	mainlib := denv.SetupCppLibProject(mainpkg, name)
+	mainlib.AddDependencies(callocpkg.GetMainLib()...)
 
-	// 'cdag' unittest project
-	maintest := denv.SetupDefaultCppTestProject("cdag"+"_test", "github.com\\jurgen-kluft\\cdag")
+	// test library
+	testlib := denv.SetupCppTestLibProject(mainpkg, name)
+	testlib.AddDependencies(callocpkg.GetTestLib()...)
+	testlib.AddDependencies(cunittestpkg.GetTestLib()...)
+
+	// unittest project
+	maintest := denv.SetupCppTestProject(mainpkg, name)
 	maintest.AddDependencies(cunittestpkg.GetMainLib()...)
-	maintest.Dependencies = append(maintest.Dependencies, mainlib)
+	maintest.AddDependency(testlib)
 
 	mainpkg.AddMainLib(mainlib)
+	mainpkg.AddTestLib(testlib)
 	mainpkg.AddUnittest(maintest)
 	return mainpkg
 }
